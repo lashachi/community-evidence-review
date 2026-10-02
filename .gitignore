@@ -1,0 +1,12 @@
+# Keep personal learning context out of commits by default.
+devpost/learner-profile.md
+
+# Local application dependencies and build output.
+/node_modules/
+/.next/
+/tsconfig.tsbuildinfo
+
+# Ignore local environment files while allowing a shareable example.
+.env
+.env.*
+!.env.example
