@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   countCharacters,
   AnalyzeResponseSchema,
@@ -17,6 +17,12 @@ import { createDemoReview } from "@/lib/demo-fixture";
 
 type WorkspaceStage = "editing" | "analyzing" | "review" | "error" | "unavailable";
 type DraftSourceItem = Omit<SourceItem, "sourceType"> & { sourceType: SourceType | "" };
+type FounderJudgment = "Investigate further" | "Not enough evidence yet" | "Set aside";
+const FOUNDER_JUDGMENTS: FounderJudgment[] = [
+  "Investigate further",
+  "Not enough evidence yet",
+  "Set aside",
+];
 const RELATIONSHIP_LABELS = {
   supports: "Supports",
   weakens: "Weakens",
@@ -45,6 +51,9 @@ export default function ReviewWorkspace() {
     { status: "complete" }
   >["analysis"] | null>(null);
   const [requestError, setRequestError] = useState("");
+  const [submittedSnapshot, setSubmittedSnapshot] = useState<ReviewInput | null>(null);
+  const [founderJudgment, setFounderJudgment] = useState<FounderJudgment | null>(null);
+  const requestInProgress = useRef(false);
 
   const validation = validateReviewInput({ problem, community, sourceItems });
   const errors = attemptedContinue && !validation.success ? validation.errors : { items: {} };
@@ -72,6 +81,8 @@ export default function ReviewWorkspace() {
     setAttemptedContinue(false);
     setAnalysis(null);
     setRequestError("");
+    setSubmittedSnapshot(null);
+    setFounderJudgment(null);
     setStage("editing");
   }
 
@@ -84,24 +95,18 @@ export default function ReviewWorkspace() {
     setSourceItems((current) => current.filter((item) => item.id !== itemId));
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAttemptedContinue(true);
-
-    if (!validation.success) return;
+  async function submitAnalysis(submission: ReviewInput) {
+    if (requestInProgress.current) return;
+    requestInProgress.current = true;
+    setStage("analyzing");
     setAnalysis(null);
     setRequestError("");
-    if (validation.data.sourceItems.length === 0) {
-      setStage("unavailable");
-      return;
-    }
 
-    setStage("analyzing");
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validation.data),
+        body: JSON.stringify(submission),
       });
       const body: unknown = await response.json();
 
@@ -128,13 +133,39 @@ export default function ReviewWorkspace() {
       }
 
       setAnalysis(result.data.analysis);
+      setSubmittedSnapshot(null);
       setStage("review");
     } catch {
       setRequestError(
         "The review could not be completed. Your source material remains in this page.",
       );
       setStage("error");
+    } finally {
+      requestInProgress.current = false;
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAttemptedContinue(true);
+
+    if (!validation.success) return;
+    const submission = validation.data;
+    setSubmittedSnapshot(submission);
+    setFounderJudgment(null);
+    setAnalysis(null);
+    setRequestError("");
+    if (submission.sourceItems.length === 0) {
+      setStage("unavailable");
+      return;
+    }
+
+    await submitAnalysis(submission);
+  }
+
+  async function retryAnalysis() {
+    if (!submittedSnapshot) return;
+    await submitAnalysis(submittedSnapshot);
   }
 
   function editInputs() {
@@ -142,6 +173,8 @@ export default function ReviewWorkspace() {
     setAttemptedContinue(false);
     setAnalysis(null);
     setRequestError("");
+    setSubmittedSnapshot(null);
+    setFounderJudgment(null);
   }
 
   return (
@@ -404,8 +437,8 @@ export default function ReviewWorkspace() {
               <p><strong>Problem:</strong> {problem}</p>
               <p><strong>Community:</strong> {community}</p>
               <p>
-                No inspectable source material was supplied, so an evidence-grounded review cannot
-                be completed. Nothing was sent to OpenAI, and no judgment is available.
+                Without supplied source evidence, this review cannot establish how evidence relates
+                to the submitted research problem. No analysis or judgment is available.
               </p>
             </>
           ) : null}
@@ -432,9 +465,8 @@ export default function ReviewWorkspace() {
                 correct. You make the judgment; this review provides no score or recommendation.
               </p>
               <p className="memory-only-notice">
-                Nothing is saved. Your inputs and review exist only in this browser page and will be
-                lost if you refresh or close it. If you want to keep the information, copy it or
-                capture it before leaving this page.
+                Nothing is saved. Copy or capture this review before editing inputs, refreshing,
+                closing this page, or leaving if you want to keep it.
               </p>
 
               <section className="review-section" aria-labelledby="direct-evidence-heading">
@@ -513,12 +545,46 @@ export default function ReviewWorkspace() {
                   <p>No unknowns were returned. This does not mean the supplied items establish every relevant fact.</p>
                 )}
               </section>
+
+              <section className="review-section" aria-labelledby="founder-judgment-heading">
+                <h3 id="founder-judgment-heading">Your judgment</h3>
+                <p>Choose the conclusion that reflects your judgment of this review.</p>
+                <div className="source-actions">
+                  {FOUNDER_JUDGMENTS.map((judgment) => (
+                    <button
+                      aria-pressed={founderJudgment === judgment}
+                      className="button button-secondary"
+                      key={judgment}
+                      onClick={() => setFounderJudgment(judgment)}
+                      type="button"
+                    >
+                      {judgment}
+                    </button>
+                  ))}
+                </div>
+                {founderJudgment ? (
+                  <p aria-live="polite">
+                    Your selected conclusion is your judgment: <strong>{founderJudgment}</strong>.
+                  </p>
+                ) : null}
+              </section>
             </div>
           ) : null}
           {stage !== "analyzing" ? (
-            <button className="button button-secondary" onClick={editInputs} type="button">
-              Edit inputs
-            </button>
+            <>
+              {stage === "error" && submittedSnapshot ? (
+                <button
+                  className="button button-primary"
+                  onClick={retryAnalysis}
+                  type="button"
+                >
+                  Try again
+                </button>
+              ) : null}
+              <button className="button button-secondary" onClick={editInputs} type="button">
+                Edit inputs
+              </button>
+            </>
           ) : null}
         </section>
       )}
