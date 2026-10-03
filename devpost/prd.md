@@ -70,10 +70,10 @@ Avoid chatbot styling, glowing or futuristic AI aesthetics, decorative gradients
 - Only after a normal evidence review, show a visually separate “Your judgment” area with three neutral choices: “Investigate further,” “Not enough evidence yet,” and “Set aside.”
 - The founder makes the selection; the AI does not preselect, recommend, score, endorse, validate, or label any choice as correct.
 - Immediately after selection, display it under “Your judgment” as the founder's recorded conclusion based on their review of the evidence.
-- The founder can change the selection during the current review; the new selection replaces the previous one. No judgment history or audit trail is required.
-- The selected judgment remains visible for the current review/session, but does not need to persist after leaving and returning. No review-saving feature is required for this POC.
-- Once selected, the experience is complete. No celebratory success state, AI confirmation, automatic outreach, post, lead collection, alternative community recommendation, or additional action follows.
-- **Acceptance criteria:** A founder can select each of the three choices after a normal review, see the selected choice explicitly attributed to them, and replace it during that review. No judgment choices or recorded judgment appear in the evidence-unavailable state.
+- The founder can change the selection during the current review; the new selection replaces the previous one. Selecting the active choice again clears it, leaving the review with no founder judgment selected. No judgment history or audit trail is required.
+- The selected judgment remains visible for the current review/session, but does not need to persist after leaving and returning. “Download results” explicitly creates a plain-text snapshot on the user's device when requested; the application does not retain, manage, or reopen it. This is distinct from saved reviews, which remain out of scope.
+- Once selected, the review is complete. The founder may still explicitly download its current results or edit inputs; no celebratory success state, AI confirmation, automatic outreach, post, lead collection, alternative community recommendation, or other next-step suggestion follows.
+- **Acceptance criteria:** A founder can select each of the three choices after a normal review, see the selected choice explicitly attributed to them, replace it during that review, or clear the active choice by selecting it again. The review may have no founder judgment; downloading results in that state records “No founder judgment selected.” No judgment choices or recorded judgment appear in the evidence-unavailable state.
 
 ## States and Boundaries
 
@@ -101,7 +101,7 @@ A minimal opening view, a “Try the example” path, a structured evidence revi
 
 ## Deferred From the POC
 
-- Saved reviews, saved judgments, or decision history: the current-review judgment is sufficient for the proof of concept.
+- Application-managed saved reviews, saved judgments, or decision history: the current-review judgment and optional user-initiated local text snapshot are sufficient for the proof of concept. The application does not retain, manage, or reopen downloaded snapshots.
 - Conversational follow-up: explicitly deferred and outside this POC; it is not part of the hackathon build.
 - Multiple-community comparison, ranking, individual lead generation, sales prospecting, and a full customer-discovery platform: outside the single-community proof of concept.
 - Automated outreach, posting, further searches, or recommendations: the product stops after the founder's judgment or at the evidence-unavailable boundary.

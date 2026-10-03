@@ -177,6 +177,74 @@ export default function ReviewWorkspace() {
     setFounderJudgment(null);
   }
 
+  function downloadResults() {
+    if (stage !== "review" || !analysis) return;
+
+    const lines = [
+      "Community Evidence Review",
+      "",
+      "AI-assisted evidence review",
+      "Problem: " + problem,
+      "Community: " + community,
+      "",
+      "Direct Source Evidence",
+    ];
+
+    sourceItems.forEach((item, index) => {
+      lines.push(
+        "",
+        `Source ${index + 1} — ${SOURCE_TYPE_LABELS[item.sourceType as SourceType]}`,
+        `Reference: ${item.reference || "Not supplied"}`,
+        `Publication date: ${item.publicationDate || "Not supplied"}`,
+        "Original supplied material:",
+        item.excerpt,
+      );
+    });
+
+    lines.push("", "AI-assisted findings");
+    analysis.claims.forEach((claim) => {
+      const citedSources = claim.sourceItemIds
+        .map((sourceId) => {
+          const sourceIndex = sourceItems.findIndex((item) => item.id === sourceId);
+          return sourceIndex >= 0 ? `Source ${sourceIndex + 1}` : null;
+        })
+        .filter((source) => source !== null);
+      lines.push(
+        "",
+        claim.kind === "limited_observation" ? "Limited Observation" : "AI Inference",
+        `Relationship to the research problem: ${RELATIONSHIP_LABELS[claim.relationship]}`,
+        `Finding: ${claim.summary}`,
+        `Explanation: ${claim.explanation}`,
+        `Source items: ${citedSources.join(", ")}`,
+      );
+    });
+
+    lines.push("", "Unknowns");
+    if (analysis.unknowns.length) {
+      analysis.unknowns.forEach((unknown) => lines.push(`- ${unknown.summary}`));
+    } else {
+      lines.push("No unknowns were returned.");
+    }
+
+    lines.push(
+      "",
+      "Your judgment",
+      founderJudgment ?? "No founder judgment selected.",
+      "",
+      "The findings above are AI-assisted analysis of supplied material. Any selected judgment above is the founder's own decision.",
+    );
+
+    const file = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const downloadUrl = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = "community-evidence-review.txt";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+  }
+
   return (
     <div className="page-shell">
       <header className="masthead">
@@ -464,11 +532,6 @@ export default function ReviewWorkspace() {
                 Validation checks structure and source references, not whether an interpretation is
                 correct. You make the judgment; this review provides no score or recommendation.
               </p>
-              <p className="memory-only-notice">
-                Nothing is saved. Copy or capture this review before editing inputs, refreshing,
-                closing this page, or leaving if you want to keep it.
-              </p>
-
               <section className="review-section" aria-labelledby="direct-evidence-heading">
                 <h3 id="direct-evidence-heading">Direct Source Evidence</h3>
                 <div className="source-list">
@@ -553,11 +616,14 @@ export default function ReviewWorkspace() {
                   {FOUNDER_JUDGMENTS.map((judgment) => (
                     <button
                       aria-pressed={founderJudgment === judgment}
-                      className="button button-secondary"
+                      className={`button button-secondary${founderJudgment === judgment ? " judgment-selected" : ""}`}
                       key={judgment}
-                      onClick={() => setFounderJudgment(judgment)}
+                      onClick={() =>
+                        setFounderJudgment((current) => (current === judgment ? null : judgment))
+                      }
                       type="button"
                     >
+                      <span aria-hidden="true">{founderJudgment === judgment ? "✓ " : ""}</span>
                       {judgment}
                     </button>
                   ))}
@@ -567,6 +633,18 @@ export default function ReviewWorkspace() {
                     Your selected conclusion is your judgment: <strong>{founderJudgment}</strong>.
                   </p>
                 ) : null}
+                <button
+                  className="button button-secondary"
+                  onClick={downloadResults}
+                  type="button"
+                >
+                  Download results
+                </button>
+                <p className="memory-only-notice">
+                  Nothing is saved by this app. Download, copy, or capture your review and judgment
+                  before editing inputs, refreshing, closing this page, or leaving if you want to
+                  keep them.
+                </p>
               </section>
             </div>
           ) : null}

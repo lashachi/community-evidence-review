@@ -7,7 +7,7 @@ status: approved
 
 ## How This Works, In Plain Language
 
-The app is one local Next.js application. The browser holds the current problem, community, source items, analysis, and founder's judgment in memory. Refreshing or closing the page clears them; nothing is saved.
+The app is one local Next.js application. The browser holds the current problem, community, source items, analysis, and founder's judgment in memory. Refreshing or closing the page clears them; the application does not save or manage reviews. After a successful review, the founder may explicitly download a plain-text snapshot to their own device. The application does not retain or reopen that file.
 
 The browser sends one review at a time to a server route in the same app. That route checks every field and limit, then calls one small OpenAI-only module. The module sends the supplied material to GPT-5.6 Luna and asks for a tightly structured response. OpenAI's key stays on the server. The model receives no search or retrieval tools.
 
@@ -24,7 +24,7 @@ We chose one framework and one request path to keep the local setup understandab
 5. The analysis service makes exactly one Responses API request per attempt, with GPT-5.6 Luna, low reasoning effort, strict JSON Schema output, no tools, and response storage disabled. The API key is read only on the server.
 6. The server validates the returned schema and source IDs against submitted items. Source types are validated on input and control source-card labels; the model cannot assign Published Rule. Invalid or incomplete output is rejected. It does not retry automatically; the founder must choose “Try again” for another request.
 7. The browser renders original excerpts and founder-selected metadata from its unchanged memory, with model findings visually distinct and linked to their source items. It does not imply that schema or provenance validation proves a finding true (`prd.md > Examine an evidence review`).
-8. After a normal review, the founder records or changes one of the three judgments in browser memory. Nothing is sent to the model or saved. The experience then stops (`prd.md > Record the founder's judgment`).
+8. After a normal review, the founder may select one of the three judgments in browser memory, replace it with another choice, or clear it by selecting the active choice again. Nothing is sent to the model or saved; a review may have no founder judgment. Download results records “No founder judgment selected.” when no choice is active. The experience then stops (`prd.md > Record the founder's judgment`).
 
 ## Stack
 
@@ -52,7 +52,7 @@ Build a calm, credible research brief: restrained neutral surfaces, subtle borde
 
 ### Review Workspace
 
-Client-side component for the opening view, problem/community fields, source-item editor, character counts, source type selector, inline validation, privacy notice, “Try the example,” loading/error states, evidence review, and “Your judgment.” It keeps the full review and judgment only in memory and preserves original excerpts. “Try again” makes a new explicit request. Implements `prd.md > Establish the research`, `Screens and Layout`, `Record the founder's judgment`, and `States and Boundaries`.
+Client-side component for the opening view, problem/community fields, source-item editor, character counts, source type selector, inline validation, privacy notice, “Try the example,” loading/error states, evidence review, “Your judgment,” and “Download results.” It keeps the full review and judgment only in memory and preserves original excerpts. “Try again” makes a new explicit request. “Download results” is an explicit client-side plain-text snapshot of the current completed review; the application does not retain or reopen the downloaded file. Implements `prd.md > Establish the research`, `Screens and Layout`, `Record the founder's judgment`, and `States and Boundaries`.
 
 ### Fictional Demo Fixture
 
@@ -72,7 +72,7 @@ Small server-only module containing all OpenAI SDK usage, model configuration, p
 
 ## Data Model
 
-All review data lives in browser memory for the active page only. It is cleared on refresh, close, or app restart. There is no `localStorage`, `sessionStorage`, IndexedDB, cookie, filesystem, database, history, or autosave. The server handles a request transiently and does not intentionally save it.
+Review data lives in browser memory for the active page only and is cleared on refresh, close, or app restart. There is no `localStorage`, `sessionStorage`, IndexedDB, cookie, application-managed filesystem storage, database, saved-review history, reopen/import functionality, or autosave. After a successful review, a user may explicitly download a plain-text snapshot generated in the browser; the application does not retain or manage a copy. The server handles an analysis request transiently and does not intentionally save it.
 
 ```text
 ReviewState

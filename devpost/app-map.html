@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Community Evidence Review — App Map</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #263331;
+        --muted: #53635f;
+        --line: #d5dfdb;
+        --surface: #fff;
+        --soft: #f2f6f4;
+        --accent: #315d53;
+        --accent-soft: #e3eee9;
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: #f7f9f8;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      a { color: #205b4e; }
+      a:focus-visible { outline: 3px solid #9abbb2; outline-offset: 3px; }
+      code { overflow-wrap: anywhere; font-size: 0.94em; }
+
+      .skip-link {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 2;
+        padding: 8px 12px;
+        transform: translateY(-150%);
+        color: #fff;
+        background: #173f36;
+      }
+
+      .skip-link:focus { transform: translateY(0); }
+
+      main {
+        width: min(100% - 32px, 1040px);
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+
+      header, section, footer {
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+
+      section { margin-top: 18px; }
+
+      h1, h2, h3 { line-height: 1.25; }
+      h1 { margin: 0 0 10px; font-family: Georgia, serif; font-size: clamp(2rem, 5vw, 3rem); }
+      h2 { margin: 0 0 12px; font-family: Georgia, serif; font-size: 1.55rem; }
+      h3 { margin: 20px 0 6px; font-size: 1.05rem; }
+      p { margin: 8px 0; }
+      .eyebrow { color: var(--accent); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .muted, .note { color: var(--muted); }
+
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 10px;
+        margin: 16px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .flow li {
+        position: relative;
+        flex: 1 1 155px;
+        min-width: 135px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .flow li:not(:last-child)::after {
+        position: absolute;
+        top: 50%;
+        right: -10px;
+        z-index: 1;
+        content: "›";
+        color: var(--accent);
+        font-size: 1.4rem;
+        font-weight: 700;
+        transform: translate(50%, -55%);
+      }
+
+      .flow strong { display: block; color: #244b42; }
+      .branch { border-left: 4px solid var(--accent); padding: 10px 14px; background: var(--accent-soft); }
+      .stops { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding-left: 1.3rem; }
+      .stops li { padding-left: 4px; }
+      .pointer-list li { margin: 7px 0; }
+      .snapshot { padding: 12px 14px; border-left: 4px solid #9a8350; background: #f7f4eb; }
+      footer { margin-top: 18px; font-size: 0.92rem; }
+
+      @media (max-width: 620px) {
+        main { width: min(100% - 20px, 1040px); padding-top: 12px; }
+        header, section, footer { padding: 17px; }
+        .flow { display: grid; grid-template-columns: 1fr; }
+        .flow li:not(:last-child)::after {
+          top: auto;
+          right: 50%;
+          bottom: -17px;
+          transform: translate(50%, 0) rotate(90deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to app map</a>
+    <main id="main">
+      <header>
+        <p class="eyebrow">A plain-language guide to the current code</p>
+        <h1>Community Evidence Review</h1>
+        <p>
+          This local app helps a founder examine supplied material from one public community
+          against one consumer problem. It keeps original evidence visible, separates AI-assisted
+          observations and interpretations from unknowns, and leaves the final judgment to the
+          founder.
+        </p>
+        <p class="muted">
+          The browser keeps the active review in page memory. The user can explicitly download a
+          text snapshot; the app itself does not save, manage, or reopen reviews.
+        </p>
+      </header>
+
+      <section aria-labelledby="normal-flow">
+        <h2 id="normal-flow">One normal review, from start to result</h2>
+        <ol class="flow">
+          <li><strong>Founder</strong>Enters a problem, community, and supplied source items.</li>
+          <li><strong>Browser workspace</strong>Checks fields and sends a valid submission.</li>
+          <li><strong>Local API route</strong>Receives the request inside this Next.js app.</li>
+          <li><strong>Validation and orchestration</strong>Checks input, then checks result shape and source IDs.</li>
+          <li><strong>OpenAI Responses API</strong>Analyzes only the supplied material; no search tools are provided.</li>
+          <li><strong>Validated review</strong>Structured findings and unknowns return through the local route.</li>
+          <li><strong>Browser review</strong>Shows original supplied evidence separately from AI-assisted findings.</li>
+          <li><strong>Founder judgment</strong>The founder may select, replace, or clear their own judgment.</li>
+          <li><strong>Optional local text file</strong>“Download results” creates a snapshot only after the user clicks.</li>
+        </ol>
+        <p class="note">
+          The browser sends review material to the local server route for analysis. The server-only
+          provider module reads the OpenAI key, so the key never enters browser code. Founder
+          judgment is UI-only and is not included in the analysis request. “Download results”
+          creates <code>community-evidence-review.txt</code> only after a click; without a selected
+          judgment, the file says “No founder judgment selected.”
+        </p>
+        <p>
+          The <strong>browser/client</strong> is the page and code running on the user's device.
+          The <strong>server</strong> is the local app code that receives the analysis request and
+          protects the provider key. The browser keeps form, review, and judgment in React state
+          (temporary page memory); a refresh starts a new page state. The download is a user-made
+          file, not saved-review storage managed by the app.
+        </p>
+      </section>
+
+      <section aria-labelledby="no-source">
+        <h2 id="no-source">Separate path: no supplied source evidence</h2>
+        <p class="branch">
+          Founder continues without source material → the browser shows
+          <strong>Evidence review unavailable</strong> → no API/provider request is made → no
+          founder judgment is offered.
+        </p>
+        <p>
+          The workspace has an early no-source check, and the analysis service also returns an
+          unavailable status before calling the provider if it receives an empty source list.
+        </p>
+      </section>
+
+      <section aria-labelledby="code-route">
+        <h2 id="code-route">A short code route</h2>
+        <p class="note">
+          Reference route based on the current source. This map does not claim that a reader has
+          completed an interactive editor tour.
+        </p>
+        <ol class="stops">
+          <li>
+            <strong>Browser entry and result:</strong>
+            <code>components/review-workspace.tsx</code> —
+            <code>handleSubmit</code> validates before submission;
+            <code>submitAnalysis</code> sends a request and displays its result. React state holds
+            the active page data, so refreshing clears it. The same component keeps judgment local
+            and builds the optional download in the browser.
+          </li>
+          <li>
+            <strong>Server doorway and checks:</strong>
+            <code>app/api/analyze/route.ts</code> —
+            <code>POST</code> reads the submitted JSON and maps errors to safe HTTP responses.
+            <code>lib/evidence-analysis.ts</code> —
+            <code>analyzeEvidence</code> validates the request, bypasses the provider for no
+            sources, and checks analysis structure and cited IDs before returning a review.
+          </li>
+          <li>
+            <strong>Allowed shapes and provider:</strong>
+            <code>lib/contracts.ts</code> defines the accepted fields and structured result;
+            <code>lib/openai-analysis.ts</code> —
+            <code>analyzeWithOpenAI</code> makes the server-side provider request and returns
+            parsed structured output. Its API key is read only on the server.
+          </li>
+        </ol>
+        <p>
+          “Structured output” means the model response must fit a predefined shape—claims and
+          unknowns with specific fields—rather than an unrestricted paragraph. Runtime validation
+          checks that shape and confirms claims refer only to submitted source IDs; it does not
+          prove that an interpretation is correct.
+        </p>
+        <p>
+          The OpenAI request uses <code>store: false</code> to disable Responses API application
+          state storage. This is not the same as disabling provider abuse-monitoring retention.
+        </p>
+      </section>
+
+      <section aria-labelledby="change-start">
+        <h2 id="change-start">To change this, start here</h2>
+        <ul class="pointer-list">
+          <li><strong>Visible interface and browser flow:</strong> <code>components/review-workspace.tsx</code></li>
+          <li><strong>Request and response rules:</strong> <code>lib/contracts.ts</code>, then <code>app/api/analyze/route.ts</code></li>
+          <li><strong>Fictional example:</strong> <code>lib/demo-fixture.ts</code></li>
+          <li><strong>OpenAI model, instructions, and request settings:</strong> <code>lib/openai-analysis.ts</code></li>
+          <li><strong>Evidence orchestration and source-ID checks:</strong> <code>lib/evidence-analysis.ts</code></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="practice">
+        <h2 id="practice">A practice to reuse</h2>
+        <p>
+          Start from a boundary requirement, connect it to the code path, then verify the effect
+          at the nearest testable boundary. Here, the requirement is “no supplied sources means no
+          provider call.” <code>handleSubmit</code> in
+          <code>components/review-workspace.tsx</code> shows the unavailable state before sending
+          a request; <code>analyzeEvidence</code> in
+          <code>lib/evidence-analysis.ts</code> also returns before invoking its provider for an
+          empty source list. The test “does not call the provider when there are no source items”
+          in <code>tests/evidence-analysis.test.ts</code> checks that boundary with a fake provider.
+          This same requirement → implementation → test path can help make another project’s
+          important limits concrete.
+        </p>
+      </section>
+
+      <section aria-labelledby="run">
+        <h2 id="run">Run it locally</h2>
+        <p>From the project folder, run:</p>
+        <p><code>npm run dev</code></p>
+        <p>Then open <code>http://localhost:3000</code> in a browser.</p>
+      </section>
+
+      <footer>
+        <p class="snapshot">
+          <strong>Implementation snapshot:</strong>
+          <code>077b03de0ad2774b340647feac3f1040a2fe0398</code>.
+          This is the Slice 3 implementation checkpoint. The current source includes later,
+          uncommitted final-review corrections, including Download results and the reminder and
+          judgment-selection UX changes; those later changes are not contained in that commit.
+          This map describes the current source and may drift if the code changes.
+        </p>
+        <p>Designed and developed by Lashachi Inc.</p>
+      </footer>
+    </main>
+  </body>
+</html>
