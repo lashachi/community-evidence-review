@@ -59,9 +59,48 @@ export const ReviewInputSchema = z
     });
   });
 
+export const ANALYSIS_KIND_VALUES = ["limited_observation", "ai_inference"] as const;
+export const EVIDENCE_RELATIONSHIP_VALUES = ["supports", "weakens", "complicates", "context"] as const;
+
+export const AnalysisClaimSchema = z
+  .object({
+    kind: z.enum(ANALYSIS_KIND_VALUES),
+    relationship: z.enum(EVIDENCE_RELATIONSHIP_VALUES),
+    summary: z.string().min(1),
+    explanation: z.string().min(1),
+    sourceItemIds: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
+export const UnknownSchema = z
+  .object({
+    summary: z.string().min(1),
+  })
+  .strict();
+
+export const AnalysisResultSchema = z
+  .object({
+    claims: z.array(AnalysisClaimSchema),
+    unknowns: z.array(UnknownSchema),
+  })
+  .strict();
+
+export const AnalyzeResponseSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("complete"),
+    analysis: AnalysisResultSchema,
+  }).strict(),
+  z.object({
+    status: z.literal("unavailable"),
+  }).strict(),
+]);
+
 export type SourceType = (typeof SOURCE_TYPE_VALUES)[number];
 export type SourceItem = z.infer<typeof SourceItemSchema>;
 export type ReviewInput = z.infer<typeof ReviewInputSchema>;
+export type AnalysisClaim = z.infer<typeof AnalysisClaimSchema>;
+export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
+export type AnalyzeResponse = z.infer<typeof AnalyzeResponseSchema>;
 
 export type SourceItemField = "sourceType" | "excerpt";
 

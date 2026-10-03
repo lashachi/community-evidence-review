@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import {
   countCharacters,
+  AnalyzeResponseSchema,
   MAX_EXCERPT_CHARACTERS,
   MAX_SOURCE_ITEMS,
   SOURCE_TYPE_LABELS,
@@ -14,8 +15,14 @@ import {
 } from "@/lib/contracts";
 import { createDemoReview } from "@/lib/demo-fixture";
 
-type WorkspaceStage = "editing" | "ready" | "unavailable";
+type WorkspaceStage = "editing" | "analyzing" | "review" | "error" | "unavailable";
 type DraftSourceItem = Omit<SourceItem, "sourceType"> & { sourceType: SourceType | "" };
+const RELATIONSHIP_LABELS = {
+  supports: "Supports",
+  weakens: "Weakens",
+  complicates: "Complicates",
+  context: "Context",
+} as const;
 
 function makeSourceItem(): DraftSourceItem {
   return {
@@ -33,6 +40,11 @@ export default function ReviewWorkspace() {
   const [sourceItems, setSourceItems] = useState<DraftSourceItem[]>([]);
   const [attemptedContinue, setAttemptedContinue] = useState(false);
   const [stage, setStage] = useState<WorkspaceStage>("editing");
+  const [analysis, setAnalysis] = useState<Extract<
+    ReturnType<typeof AnalyzeResponseSchema.parse>,
+    { status: "complete" }
+  >["analysis"] | null>(null);
+  const [requestError, setRequestError] = useState("");
 
   const validation = validateReviewInput({ problem, community, sourceItems });
   const errors = attemptedContinue && !validation.success ? validation.errors : { items: {} };
@@ -58,6 +70,8 @@ export default function ReviewWorkspace() {
     setCommunity(example.community);
     setSourceItems(example.sourceItems.map((item) => ({ ...item })));
     setAttemptedContinue(false);
+    setAnalysis(null);
+    setRequestError("");
     setStage("editing");
   }
 
@@ -70,18 +84,64 @@ export default function ReviewWorkspace() {
     setSourceItems((current) => current.filter((item) => item.id !== itemId));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAttemptedContinue(true);
-    setStage("editing");
 
     if (!validation.success) return;
-    setStage(sourceItems.length === 0 ? "unavailable" : "ready");
+    setAnalysis(null);
+    setRequestError("");
+    if (validation.data.sourceItems.length === 0) {
+      setStage("unavailable");
+      return;
+    }
+
+    setStage("analyzing");
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validation.data),
+      });
+      const body: unknown = await response.json();
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof body === "object" &&
+          body !== null &&
+          "error" in body &&
+          typeof body.error === "string"
+            ? body.error
+            : "The review could not be completed. Your source material remains in this page.";
+        setRequestError(
+          errorMessage,
+        );
+        setStage("error");
+        return;
+      }
+
+      const result = AnalyzeResponseSchema.safeParse(body);
+      if (!result.success || result.data.status !== "complete") {
+        setRequestError("The server returned a review that could not be safely validated.");
+        setStage("error");
+        return;
+      }
+
+      setAnalysis(result.data.analysis);
+      setStage("review");
+    } catch {
+      setRequestError(
+        "The review could not be completed. Your source material remains in this page.",
+      );
+      setStage("error");
+    }
   }
 
   function editInputs() {
     setStage("editing");
     setAttemptedContinue(false);
+    setAnalysis(null);
+    setRequestError("");
   }
 
   return (
@@ -309,57 +369,160 @@ export default function ReviewWorkspace() {
           </section>
 
           <aside className="privacy-note" aria-label="Source material privacy notice">
-            <strong>Use public, non-sensitive material only.</strong> When analysis is connected in a
-            later slice, excerpts submitted for analysis will be sent to OpenAI. Do not submit
-            confidential company information, private community content, credentials, or personal
-            or sensitive information. In this slice, checks are local only; nothing is sent to an
-            external service.
+            <strong>Use public, non-sensitive material only.</strong> When you submit a review, the
+            problem, community name, and each source item’s selected type, unchanged excerpt, and
+            optional reference/date are sent to OpenAI for analysis. Do not submit confidential
+            company information, private community content, credentials, or personal or sensitive
+            information. The app does not save or log review content; OpenAI’s standard API abuse
+            monitoring may retain submitted content under its current policy.
           </aside>
 
           <div className="form-footer">
             <p>
-              Your entries stay in this page only and clear on refresh or close. No review or
-              judgment is saved.
+              Nothing is saved. Your inputs and review exist only in this browser page and will be
+              lost if you refresh or close it. If you want to keep the information, copy it or
+              capture it before leaving this page.
             </p>
             <button className="button button-primary" type="submit">
-              Check details locally
+              {sourceItems.length === 0 ? "Continue without source material" : "Analyze supplied evidence"}
             </button>
           </div>
         </form>
       ) : (
-        <section className="result-state" aria-live="polite" role="status">
+        <section className="result-state" aria-live="polite" aria-busy={stage === "analyzing"}>
+          {stage === "analyzing" ? (
+            <>
+              <p className="eyebrow">Evidence review</p>
+              <h2>Reviewing the supplied material</h2>
+              <p>Your source items are being analyzed. This may take a little while.</p>
+            </>
+          ) : null}
           {stage === "unavailable" ? (
             <>
-              <p className="eyebrow">Local input check</p>
+              <p className="eyebrow">Evidence review</p>
               <h2>Evidence review unavailable</h2>
               <p><strong>Problem:</strong> {problem}</p>
               <p><strong>Community:</strong> {community}</p>
               <p>
                 No inspectable source material was supplied, so an evidence-grounded review cannot
-                be completed. Nothing has been sent to an AI service, and no judgment is available.
+                be completed. Nothing was sent to OpenAI, and no judgment is available.
               </p>
             </>
-          ) : (
+          ) : null}
+          {stage === "error" ? (
             <>
+              <p className="eyebrow">Evidence review</p>
+              <h2>Review could not be completed</h2>
+              <p role="alert">{requestError}</p>
+              <p>No partial findings are shown. Your entered material remains in this page.</p>
+            </>
+          ) : null}
+          {stage === "review" && analysis ? (
+            <div className="review-content">
               {sourceItems.some((item) => item.id.startsWith("demo-")) ? (
                 <p><span className="demo-stamp">Fictional demo material</span></p>
               ) : null}
-              <p className="eyebrow">Local input check</p>
-              <h2>Details are ready for review</h2>
+              <p className="eyebrow">Evidence review · supplied material only</p>
+              <h2>What the supplied evidence may indicate</h2>
               <p><strong>Problem:</strong> {problem}</p>
               <p><strong>Community:</strong> {community}</p>
-              <p>
-                {sourceItems.length} separate source items passed local checks. This Slice 1 build
-                does not analyze them; nothing was sent outside this browser. Passing validation
-                does not verify the source, metadata, or content.
+              <p className="review-disclaimer">
+                The original source items below are shown separately from AI-generated analysis.
+                Validation checks structure and source references, not whether an interpretation is
+                correct. You make the judgment; this review provides no score or recommendation.
               </p>
-            </>
-          )}
-          <button className="button button-secondary" onClick={editInputs} type="button">
-            Edit inputs
-          </button>
+              <p className="memory-only-notice">
+                Nothing is saved. Your inputs and review exist only in this browser page and will be
+                lost if you refresh or close it. If you want to keep the information, copy it or
+                capture it before leaving this page.
+              </p>
+
+              <section className="review-section" aria-labelledby="direct-evidence-heading">
+                <h3 id="direct-evidence-heading">Direct Source Evidence</h3>
+                <div className="source-list">
+                  {sourceItems.map((item, index) => (
+                    <article className="source-card source-card-readonly" id={`source-item-${item.id}`} key={item.id}>
+                      <div className="source-heading">
+                        <h4>Source item {index + 1}</h4>
+                        <span className="source-number">Submitted source</span>
+                      </div>
+                      <p className="evidence-label">{SOURCE_TYPE_LABELS[item.sourceType as SourceType]}</p>
+                      {item.sourceType === "published_rules_or_community_description" ? (
+                        <p className="source-provenance">
+                          Published Rule · founder-designated source type; not independently verified
+                        </p>
+                      ) : null}
+                      <blockquote>{item.excerpt}</blockquote>
+                      <dl className="source-details">
+                        <div><dt>Reference</dt><dd>{item.reference || "Not supplied"}</dd></div>
+                        <div><dt>Publication date</dt><dd>{item.publicationDate || "Not supplied"}</dd></div>
+                      </dl>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="review-section" aria-labelledby="analysis-claims-heading">
+                <h3 id="analysis-claims-heading">Limited Observation and AI Inference</h3>
+                <p>
+                  Supports, Weakens, Complicates, and Context describe how the cited evidence
+                  relates to the research problem—not whether it verifies the wording of a claim.
+                </p>
+                {analysis.claims.length ? (
+                  <div className="claim-list">
+                    {analysis.claims.map((claim, index) => (
+                      <article className="analysis-claim" key={`${claim.kind}-${index}`}>
+                        <div className="claim-labels">
+                          <span className="claim-kind">
+                            {claim.kind === "limited_observation" ? "Limited Observation" : "AI Inference"}
+                          </span>
+                          <span className="claim-relationship">
+                            {RELATIONSHIP_LABELS[claim.relationship]}
+                          </span>
+                        </div>
+                        <h4>{claim.summary}</h4>
+                        <p>{claim.explanation}</p>
+                        <div className="claim-sources">
+                          <strong>Source items:</strong>
+                          {claim.sourceItemIds.map((sourceId) => {
+                            const sourceIndex = sourceItems.findIndex((item) => item.id === sourceId);
+                            return (
+                              <a href={`#source-item-${sourceId}`} key={sourceId}>
+                                Source {sourceIndex + 1}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No limited observations or inferences were returned.</p>
+                )}
+              </section>
+
+              <section className="review-section" aria-labelledby="unknowns-heading">
+                <h3 id="unknowns-heading">Unknown</h3>
+                {analysis.unknowns.length ? (
+                  <ul className="unknown-list">
+                    {analysis.unknowns.map((unknown, index) => (
+                      <li key={`${unknown.summary}-${index}`}>{unknown.summary}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No unknowns were returned. This does not mean the supplied items establish every relevant fact.</p>
+                )}
+              </section>
+            </div>
+          ) : null}
+          {stage !== "analyzing" ? (
+            <button className="button button-secondary" onClick={editInputs} type="button">
+              Edit inputs
+            </button>
+          ) : null}
         </section>
       )}
+      <footer className="site-footer">Designed and developed by Lashachi Inc.</footer>
     </div>
   );
 }
